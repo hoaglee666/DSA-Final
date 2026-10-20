@@ -1,212 +1,111 @@
-# Week 1 Report — Self-Organizing Linked Lists
+# Week 1 Report — Understand & Plan
 
-**Project family:** LIST  
-**Programming language:** C  
-**Week 1 theme:** Understand & Plan  
-**Status:** Initial design and test plan
+**Project:** Big-int Division & Modular Exponentation | DSA Final Project
 
-## 1. About the problem
+**Group:** 22110062 - Đào Nguyên Phúc & 22110026 - Lê Huy Hoàng
 
-Linked lists store elements in nodes, connected by pointers. For singly linked lists, nodes contain data and pointers to next node. List is accessed through head pointer, final node points to `NULL`.
+**Project family:** NUMERIC
 
-In worst-case, searching takes `(O(n))`, `(n)` is number of nodes. If this value is accessed more than that value, keeping list in its originall order result in searching the same nodes repeatedly.
+**Programming language:** C
 
-Our group want to see if changing the order of nodes after successful searches reduce search cost for some access patterns, by self-organizing linked lists.
+## 1. About the problem [Shared]
 
-We will have a singly linked list, and 2 self-organizing methods:
+Standard computer structures reply on fixed-width integer (`int, long long`), overflow when dealing with cryptographic numbers consists of hundreds or thousands of digits.
 
-1. **move-to-front (MTF):** Successful search, move accessed node to head of list.
-2. **count-based:** Successful accesses got tracked, then organize list in descending order of access count.
+Therefore, our group want to implement a BigInt library in `C`, which requires:
 
-Ordinary list, with the same access sequences and number of nodes for all methods.
+1. Storing large numbers as dynamic arrays of limbs (e.g., base $10^4$ or $2^32$).
+2. Addition, substraction, and multiprecision multiplication.
+3. Multi digit division with a quotient and remainder using Knuth's algorithm D.
+4. Fast modular exponentitation ($base^{exponent} \pmod{m}$) using square and multiply algorithm.
+5. Benchmarking & validation by comparing modular exponentiation against naive multiplication.
 
-## 2. Approach and data structures
+## 2. Approach and data structures [Shared]
 
-### 2.1 Singly linked list
+Data structure: dynamic array of limbs (`uint32_t *digits`) wrapped inside a `struct BigInt` that track size, capacity, and sign.
 
-The core is singly linked list written in `C`.
+Since contiguous array provide `O(1)` random access by index, Knuth's algorithm D is good with it for inspect leading limbs directly ($u[j + n], v[n - 1]$). The layout of it maximizes CPU cache locality during sequential limb addtition and multiplication.
 
-Basic node has:
+Base $10^4$ allows intermediate products ($b^2 = 10^8$) to fit with standard 32-bit/64-bit without overflow.
 
-- `data`: integer stored in node.
-- `next`: pointer to next node.
+## 3. Syllabus Mapping [Shared]
 
-List will have a `head` pointer, with `tail` pointer and `size` counter for the extended methods.
+- Lesson 2 (algorithm complexity & data types): big-O analysis of $O(L^2)$ multiplication, $O(m \cdot n)$ divison, $O(k \cdot L^2)$ modular exponentiation.
+- Lesson 6-7 (pointers, dynamic memory & arrays): memory allocation, pointer arithmetic, safety discipline.
+- Numerical & D-n-C algorithms: halve recurrences in binary exponentiation and loop invariants in multiprecision arithmetic.
 
-Nodes will store access count in **count-based**.
+## 4. Hand-trace examples [Shared]
 
-### 2.2 Planned structure
+### 4.1. Small example [Shared]
 
-```c
-typedef struct Node {
-    int data;
-    struct Node *next;
-    unsigned long access_count;
-} Node;
+_Task_: verify the correctness of modular reduction property $(a \times b) \pmod m = ((a \pmod m) \times (b \pmod m)) \pmod m$ using 4 step miniature computation: evaluating $7^3 \pmod{11}$
 
-typedef struct {
-    Node *head;
-    Node *tail;
-    int size;
-} List;
-```
+_Hand trace steps_:
 
-`access_count` is for **count-based**, `tail` pointer, `size` counter will be used for insertion, deletion, and reorganization.
+1. initalize: base = 7, exponent = 3, modulus = 11.
+2. step 1 ($i = 1$): $7^1 = 7 \pmod{11} = 7$.
+3. step 2 ($i = 2$): $7^2 = 7 \times 7 = 49 \implies 49 \pmod{11} = 5$.
+4. step 3 ($i = 3$): $7^3 = 7 \times 5 = 35 \implies 35 \pmod{11} = 2$.
+5. check by computing full power: $7^3 = 343 \implies 343 \pmod{11} = 2$
 
-Integer as stored value since it is easy to trace by hand, help focus on linked list behavior.
+### 4.2. Fast modular exponentiation [Hoàng]
 
-### 2.3 Planned operations
+- Assigned: compute $7^13 \pmod{11}$
 
-- Init empty list.
-- Insert a node at head.
-- Insert a node at tail.
-- Search for a value with sequential traversal.
-- Delete a node by value.
-- Display the list.
-- Free nodes.
-- Maintain `tail` pointer and `size` counter correctly.
-- Self-organize after successful searches.
+- binary: $13_{10}$ has 4 binary bits: $1101_2$
+- init: accumulator r = 1, base $b = 7 \pmod{11} = 7$
+- step 1 (bit = 1, MSB): square $r^2 \pmod{11} = 1^2 = 1$; multi by base $\rightarrow 1 \times 7 = 7 \pmod{11} \rightarrow \mathbf{r = 7}$
+- step 2 (bit = 1): square $r^2 \pmod{11} = 7^2 = 49 \equiv 5 \pmod{11}$; multi by base $\rightarrow 5 \times 7 = 35 \equiv 2 \pmod{11} \rightarrow \mathbf{r = 2}$
+- step 3 (bit = 0): square $r^2 \pmod{11} = 2^2 = 4$; skip multi (bit = 0) $\rightarrow \mathbf{r = 4}$
+- step 4 (bit = 1, LSB): square $r^2 \pmod{11} = 4^2 = 16 = 5 \pmod{11}$; multi by base $\rightarrow 5 \times 7 = 35 = 2\pmod{11} \rightarrow \mathbf{r = 2}$
+- final: 2
 
-### 2.4 Why this approach
+### 4.3. Long division [Phúc]
 
-Nodes can be reordered by changing pointers instead of shifting array of elements in linked lists. In **move-to-front**, nodes can be moved to head by adjusting links.
+- Assigned: compute $95432 \div 187$ in base 10.
 
-But linked lists don't provide constant time accessed. Search by value needs sequential traversal. So, worst-case `(O(n))` search is not removed, but number of nodes examined can be reduced for some access patterns.
+- parameters: divisor limbs $n = 3 (187)$, dividend $m = 2 (95432)$, quotient digits = $m + 1 = 3$.
+- normalization factor: $d = \lfloor10 / (1 + 1)\rfloor = 5$, normalized divisor $v' = 187 \times 5 = 935$, normalized dividend $u' = 95432 \times 5 = 477160$.
+- step 1 (iteration $j = 2$, window `4771`):
+  - estimate quotient (use leading digits) $\hat{q} = \lfloor47 / 9\rfloor = 5$, remainder estimate $\hat{r} = 47 - (5 \times 9) = 2$.
+  - check estimate $\hat q \times v'_{n-1} \leq 10\hat r+u_{j+n-2} \rightarrow 5 \times 3 \leq 10 \times 2 + 7 = 15 \leq 27$. multiply by 10 because base 10.
+  - multiply and subtract: $4771 - (5 \times 935) = 4771 - 4675 = 96$.
+  - quotient digit $q_2 = 5$.
+- step 2 (iteration $j = 1$, window `0966`, bring down 6):
+  - estimate quotient (use leading digits) $\hat{q} = \lfloor9 / 9\rfloor = 1$, remainder estimate $\hat{r} = 9 - (1 \times 9) = 0$.
+  - check estimate $\hat q \times v'_{n-1} \leq 10\hat r+u_{j+n-2} \rightarrow 1 \times 3 \leq 10 \times 0 + 6 = 3 \leq 6$. multiply by 10 because base 10.
+  - multiply and subtract: $966 - (1 \times 935) = 966 - 935 = 31$.
+  - quotient digit $q_1 = 1$.
+- step 3 (iteration $j = 0$, window `0310`, bring down 0):
+  - estimate quotient (use leading digits) $\hat{q} = \lfloor3 / 9\rfloor = 0$, remainder estimate $\hat{r} = 3 - (0 \times 9) = 3$.
+  - skip check estimate.
+  - multiply and subtract: $310 - (0 \times 935) = 310$.
+  - quotient digit $q_0 = 0$.
+- final: quotient digits $(5, 1, 0) \rightarrow q = 510$. remainder 310 unnormalized: $310 \div 5 = r = 62$
+- check: $510 \times 187 + 62 = 95370 + 62 = 95432$
 
-## 3. Hand Trace: move-to-front
+## 5. Test plan [Shared]
 
-### 3.1 Initial list
+- unit testing: individual test of addition carries, subtraction borrows, and multiplication cross-products.
+- algorithm D validation: edge cases include $u \le v, v = 1, v = 0$, inputs where Knuth's $\hat{q}$ correction and add-back steps activate.
+- modexp benchmarking: timing execution across 16, 64, 256, 1024 bit exponents to test logarithmic scaling compared to naive multiplication.
 
-The initial list is:
+## 6. Teach-back [Shared]
 
-```text
-head
- |
- v
-[A] -> [B] -> [C] -> [D] -> [E] -> [F] -> NULL
-```
+### 6.1. Teach-back: modular exponentiation & representation [Hoàng]
 
-Access sequence:
+- Trace summary: by turning 13 to binary `1101`, 4 bits can be processed from most to least significant. Each bit triggers square operation on the accumulator, when bit is 1, perform multiplication by base. Reduce module m at every step keep number small without changing final remainder.
+- Why this DSA: storing limbs in little-endian order help arithmetic loops start at index 0 (LSD), same with how carries propagate. Square and multiply calculates large powers efficiently without multiplying base repeatedly (multiply only when bit is 1). Reduce the number of operations.
+- Syllabus topics needed: arrays & pointers (L6-L7), big-O complexity (L2), D-n-C recurrences.
 
-```text
-C, E, C, C
-```
+### 6.2. Teach-back: modular exponentiation & representation [Phúc]
 
-Searchs start at head. Search cost measured by counting nodes examined, include target node. If success, accessed node move to head.
-
-### 3.2 Trace table
-
-| Step    | Accessed value | Nodes examined | List after the operation   |
-| ------- | -------------- | -------------: | -------------------------- |
-| Initial | —              |              — | A -> B -> C -> D -> E -> F |
-| 1       | C              |              3 | C -> A -> B -> D -> E -> F |
-| 2       | E              |              5 | E -> C -> A -> B -> D -> F |
-| 3       | C              |              2 | C -> E -> A -> B -> D -> F |
-| 4       | C              |              1 | C -> E -> A -> B -> D -> F |
-
-Lists end with `NULL`, keep rows compact.
-
-### 3.3 Explanation for steps
-
-**Step 1: Search for C**
-
-Start at A, then B, then C. Search cost is 3 nodes visit. Since C is not at head, moved to front.
-
-```text
-Before: A -> B -> C -> D -> E -> F -> NULL
-After:  C -> A -> B -> D -> E -> F -> NULL
-```
-
-**Step 2: Search for E**
-
-Now at C, A, B, D, and E. Cost is 5 nodes. Then E moved to front.
-
-```text
-Before: C -> A -> B -> D -> E -> F -> NULL
-After:  E -> C -> A -> B -> D -> F -> NULL
-```
-
-**Step 3: Search for C**
-
-E then C, cost is 2 nodes. C to the front again.
-
-```text
-Before: E -> C -> A -> B -> D -> F -> NULL
-After:  C -> E -> A -> B -> D -> F -> NULL
-```
-
-**Step 4: Search for C again**
-
-C is already at head. so cost is 1 node. Order does not change.
-
-### 3.4 Comparison with an ordinary list
-
-If list is just in its orginal order always, search costs would be:
-
-| access                             | normal list | move-to-front |
-| ---------------------------------- | ----------: | ------------: |
-| C                                  |           3 |             3 |
-| E                                  |           5 |             5 |
-| C                                  |           3 |             2 |
-| C                                  |           3 |             1 |
-| **Total node visits**              |      **14** |        **11** |
-| **Average node visits per search** |     **3.5** |      **2.75** |
-
-In this one, **move-to-front** reduces number of node visits from 14 to 11.
-
-This does not mean **move-to-front** always faster. Different access sequences produce different results.
-
-## 4. count-based method
-
-Nodes will store access count, initially 0. When a search is successful, count increased by 1. Nodes will be ordered as nodes with larger counts before smaller ones.
-
-Ties will keep the relative order of nodes with equal counts.
-
-## 5. Test plan
-
-| test | operation                                     | expected result                                                |
-| ---- | --------------------------------------------- | -------------------------------------------------------------- |
-| T1   | Initialize a list                             | head and tail are `NULL`; size is zero                         |
-| T2   | Insert at head                                | 1 node; head and tail point to it                              |
-| T3   | Insert several values at tail                 | Values show up in inserted order                               |
-| T4   | Search for head value                         | Search succeeds after 1 node visit                             |
-| T5   | Search for a middle value                     | Search returns correct node                                    |
-| T6   | Search for a missing value                    | Search not found without invalid pointer access                |
-| T7   | Delete head by value                          | head advances correctly; size decreases                        |
-| T8   | Delete a middle value                         | Predecessor links to the deleted node's successor              |
-| T9   | Delete tail by value                          | tail becomes the new final node; its `next` is `NULL`          |
-| T10  | Delete the only node                          | head and tail become `NULL`; size is 0                         |
-| T11  | Delete a value not present                    | List not changed                                               |
-| T12  | Insert at tail with a maintained tail pointer | New node is appended and tail is updated                       |
-| T13  | Repeated move-to-front searches               | Accessed nodes move to the head without losing nodes           |
-| T14  | Repeated count-based searches                 | Counts increase correctly and ordering follows the stated rule |
-| T15  | Compare methods on same workload              | Node visits and average search costs are recorded consistently |
-| T16  | Free list                                     | All allocated nodes are released and list pointers are reset   |
-
-## 6. Syllabus mapping
-
-| syllabus topic                             | source  | usages                                                                                |
-| ------------------------------------------ | ------- | ------------------------------------------------------------------------------------- |
-| Linked lists                               | L06     | Node structure, head pointer, insertion, deletion, sequential search, pointer updates |
-| Linked list implementation and testing     | L07     | C implementation, test driver, edge cases, tracing, and debugging                     |
-| Complexity analysis                        | L02     | Big-O notation, counting basic operations, cost grows with input size                 |
-| List operations and sequential search cost | L06–L07 | Implement operations and count nodes examined by searches                             |
-| Expected cost                              | L02     | Compare search costs under different workloads                                        |
+- Trace summary: first normalize divisor and dividend by factor d that leading divisor limb is $\leq \lfloor b / 2 \rfloor$. Each iteration j, estimate a trial quotient with leading limbs of the remainder window divided by the leading limbs of divisor, then test if needed and multiply and subtract.
+- Why this DSA: contiguous arrays help direct index access, make it easy to test current division window, estimate quotient digits, and multiplication and subtraction. This is good for high speed multiprecision numerial computations.
+- Syllabus topics needed: array indexing & memory layout, numerical algorithms, and loop invariants (L2 & L6).
 
 ## 7. AI log
 
-| prompt                                                                          | purpose                                      | output                                                                      |
-| ------------------------------------------------------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------- |
-| read the rubric, the pdf files and help me set up a plan to do my final project | Setting up project scope                     | Singly linked list with integers, with self-organizing methods              |
-| check if contents of the plan correct with component C                          | Check required concept based on PDF files    | Map list operations, sequential search cost, expected cost to project       |
-| is the contents based on the supplied pdfs                                      | Avoid silently introducing untaught material | Use L02, L06, and L07 as primary references; flag unconfirmed as extensions |
-| hand trace example for week 1                                                   | Meet the requirement in rubric               | Trace six nodes under move-to-front                                         |
-
-## 8. References
-
-1. **Lesson 2 — Overview: From Problem to Program, Data Types, Algorithm Complexity.** Pointers, dynamic memory, operation counting, and Big-O notation.
-2. **Lesson 6 — Lists Continued: Linked Lists, Singly Linked List Operations.** Node structures, insertion, deletion, sequential search, pointer correctness, and complexity comparisons.
-3. **Lesson 7 — Practice Lab: Building and Using Singly Linked Lists.** Checklist, test driver, edge-case testing, and debugging guidance.
-4. **Project rubric — Appendix A and Appendix B.** Syllabus mapping and LIST-family concept questions and live-modification tasks.
-
-**Week 1 conclusion:** Singly linked list written in `C` will be used.
+| #   | Date       | Student | Tool   | Prompt                                                                | Output                                                                     | Verification                         | Changed                                             |
+| --- | ---------- | ------- | ------ | --------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------ | --------------------------------------------------- |
+| 1   | 2026-10-20 | Hoàng   | Gemini | Provided rubric & project brief, week 1 report structure into 2 roles | Week 1 draft with problem restatement, traces, test plan, syllabus mapping | Manually verified arithmetric traces | Aligned terminology with C dynamic memory standards |
