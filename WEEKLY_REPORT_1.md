@@ -6,9 +6,9 @@
 
 **Repository & Evidence Links:**
 
-- **Public GitHub Repository:** [https://github.com/hoaglee666/DSA-Final.git](https://github.com/hoaglee666/DSA-Final.git)
-- **Report File Link:** [https://github.com/hoaglee666/DSA-Final.git/blob/main/WEEKLY_REPORT_1.md](https://github.com/hoaglee666/DSA-Final.git/blob/main/WEEKLY_REPORT_1.md)
-- **Initial Commit Link:** [https://github.com/hoaglee666/DSA-Final.git/commit/main](https://github.com/hoaglee666/DSA-Final.git/commit/main) _(replace with your actual commit hash after pushing)_
+- **Public GitHub Repository:** [https://github.com/hoaglee666/DSA-Final.git]
+- **Report File Link:** [https://github.com/hoaglee666/DSA-Final.git/blob/main/WEEKLY_REPORT_1.md]
+- **Initial Commit Link:** [https://github.com/hoaglee666/DSA-Final/commit/36e29b5b97b0586e638667820f62a2990ba7ca0a]
 
 **Project family:** NUMERIC
 
