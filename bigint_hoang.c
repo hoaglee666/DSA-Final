@@ -47,6 +47,39 @@ void trim_leading_zeros(BigInt *num)
     }
 }
 
+BigInt *int_to_bigint_internal(int64_t val)
+{
+    BigInt *num = create_bigint(4);
+    if (val < 0)
+    {
+        num->sign = -1;
+        val = -val;
+    }
+    else
+        num->sign = 1;
+
+    if (val == 0)
+    {
+        num->digits[0] = 0;
+        num->size = 1;
+        return num;
+    }
+
+    size_t idx = 0;
+    while (val > 0)
+    {
+        if (idx >= num->capacity)
+        {
+            num->capacity *= 2;
+            num->digits = (uint32_t *)realloc(num->digits, num->capacity * sizeof(uint32_t));
+        }
+        num->digits[idx++] = val % BASE;
+        val /= BASE;
+    }
+    num->size = idx;
+    return num;
+}
+
 // stri to bigint, right to left
 BigInt *string_to_bigint(const char *str)
 {
@@ -91,39 +124,6 @@ BigInt *string_to_bigint(const char *str)
         end = start;
     }
     trim_leading_zeros(num);
-    return num;
-}
-
-BigInt *int_to_bigint_internal(int64_t val)
-{
-    BigInt *num = create_bigint(4);
-    if (val < 0)
-    {
-        num->sign = -1;
-        val = -val;
-    }
-    else
-        num->sign = 1;
-
-    if (val == 0)
-    {
-        num->digits[0] = 0;
-        num->size = 1;
-        return num;
-    }
-
-    size_t idx = 0;
-    while (val > 0)
-    {
-        if (idx >= num->capacity)
-        {
-            num->capacity *= 2;
-            num->digits = (uint32_t *)realloc(num->digits, num->capacity * sizeof(uint32_t));
-        }
-        num->digits[idx++] = val % BASE;
-        val /= BASE;
-    }
-    num->size = idx;
     return num;
 }
 
