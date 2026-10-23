@@ -7,8 +7,8 @@
 **Repository & Evidence Links:**
 
 - **Public GitHub Repository:** [https://github.com/hoaglee666/DSA-Final.git]
-- **Report File Link:** [https://github.com/hoaglee666/DSA-Final.git/blob/main/WEEKLY_REPORT_1.md]
-- **Initial Commit Link:** [https://github.com/hoaglee666/DSA-Final/commit/36e29b5b97b0586e638667820f62a2990ba7ca0a]
+- **Report File Link:** [https://github.com/hoaglee666/DSA-Final/blob/main/WEEKLY_REPORT_1.md]
+- **Initial Commit Link:** [https://github.com/hoaglee666/DSA-Final/commit/6e1bc5b13b05abe84a8986c118c87e2dd6e7d816]
 
 **Project family:** NUMERIC
 
