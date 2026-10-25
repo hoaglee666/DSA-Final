@@ -337,16 +337,46 @@ BigInt *big_modexp(const BigInt *base, const BigInt *exp, const BigInt *mod)
 void run_hoang_test()
 {
     printf("=== RUNNING HOANG UNIT TESTS ===\n");
+    printf("\n---1. ADDITION & SUBTRACTION TESTING ---\n");
 
+    BigInt *a = string_to_bigint("987654321");
+    BigInt *b = string_to_bigint("123456789");
+
+    BigInt *sum = bigint_add(a, b);
+    char buf_sum[128];
+    bigint_to_string(sum, buf_sum, sizeof(buf_sum));
+    printf("987654321 + 123456789 = %s (EXPECTED 1111111110)\n", buf_sum);
+
+    BigInt *diff = bigint_sub(a, b);
+    char buf_diff[128];
+    bigint_to_string(diff, buf_diff, sizeof(buf_diff));
+    printf("987654321 - 123456789 = %s (EXPECTED 864197532)\n", buf_diff);
+
+    printf("\n---2. MULTIPLICATION TESTING ---\n");
+    BigInt *m1 = string_to_bigint("1234");
+    BigInt *m2 = string_to_bigint("5678");
+    BigInt *prod = bigint_mul(m1, m2);
+    char buf_prod[128];
+    bigint_to_string(prod, buf_prod, sizeof(buf_prod));
+    printf("1234 * 5678 = %s (EXPECTED 7006652)\n", buf_prod);
+
+    printf("\n---3. ModExp TESTING ---\n");
     BigInt *b7 = string_to_bigint("7");
     BigInt *e13 = string_to_bigint("13");
     BigInt *m11 = string_to_bigint("11");
-
     BigInt *ans = big_modexp(b7, e13, m11);
+    char buf_mod[128];
+    bigint_to_string(ans, buf_mod, sizeof(buf_mod));
+    printf("TEST 7^13 mod 11 -> RESULT: %s (EXPECTED BASED ON TRACE: 2)\n", buf_mod);
 
-    char buf[128];
-    bigint_to_string(ans, buf, sizeof(buf));
-    printf("TEST 7^13 mod 11 -> RESULT: %s (EXPECTED BASED ON TRACE: 2)\n", buf);
+    free_bigint(a);
+    free_bigint(b);
+    free_bigint(sum);
+    free_bigint(diff);
+
+    free_bigint(m1);
+    free_bigint(m2);
+    free_bigint(prod);
 
     free_bigint(b7);
     free_bigint(e13);

@@ -5,6 +5,7 @@
 **Group:** 22110062 - Đào Nguyên Phúc & 22110026 - Lê Huy Hoàng
 
 **Repository & Evidence Links:**
+
 - **Public GitHub Repository:** [https://github.com/hoaglee666/DSA-Final.git](https://github.com/hoaglee666/DSA-Final.git)
 - **Week 1 Report:** [WEEKLY_REPORT_1.md](WEEKLY_REPORT_1.md)
 - **Source Files:**
@@ -19,19 +20,20 @@
 
 In accordance with the Week 2 plan set out in [WEEKLY_REPORT_1.md](WEEKLY_REPORT_1.md#62-phúcs-tasks-target--8-hours), all tasks assigned to **Đào Nguyên Phúc** have been implemented, verified, and benchmarked:
 
-| Task | Description | Status | Verification |
-|------|-------------|--------|--------------|
-| **1. Long Division (`big_divmod`)** | Implemented Knuth's Algorithm D with normalization ($d$), trial quotient estimation ($\hat{q}$), correction loop, multiply-and-subtract, and add-back step (Step D6). Also provides fast short-division path for single-limb divisors ($n=1$) and signed division support. | **Done** | Unit tests & Oracle test suite (700 tests passed) |
-| **2. Week 1 Division Trace Verification** | Unit tests for $95432 \div 187 = 510$ with remainder $62$, matching the hand trace in Section 4.3 of Week 1 Report. Also added edge cases: division by zero ($v=0$), $u < v$, $u = v$, $v = 1$, and Step D6 add-back activation. | **Done** | `run_phuc_tests()` in `bigint_phuc.c` |
-| **3. Automated Oracle Testing** | Automated test suite validating `big_divmod` against 64-bit hardware integer division (500 random cases) and large-number mathematical invariants $u = q \times v + r$ with $0 \le r < v$ (200 cases up to 100 decimal digits). | **Done** | `run_oracle_tests()` (100% pass rate) |
-| **4. Empirical Complexity Notes for Division** | Measured execution times of `big_divmod` across scaling limb counts ($N = 10$ to $640$ limbs) to empirically confirm the $O(m \cdot n)$ quadratic complexity ($T(2N)/T(N) \approx 4\times$). | **Done** | `run_division_benchmark()` |
-| **5. Subsystem Integration** | Connected `big_divmod` into Hoàng's `big_modexp` and `big_modexp_naive`, allowing the Week 1 modexp trace ($7^{13} \pmod{11} = 2$) to succeed. | **Done** | `run_hoang_test()` passed |
+| Task                                           | Description                                                                                                                                                                                                                                                                | Status   | Verification                                      |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------- |
+| **1. Long Division (`big_divmod`)**            | Implemented Knuth's Algorithm D with normalization ($d$), trial quotient estimation ($\hat{q}$), correction loop, multiply-and-subtract, and add-back step (Step D6). Also provides fast short-division path for single-limb divisors ($n=1$) and signed division support. | **Done** | Unit tests & Oracle test suite (700 tests passed) |
+| **2. Week 1 Division Trace Verification**      | Unit tests for $95432 \div 187 = 510$ with remainder $62$, matching the hand trace in Section 4.3 of Week 1 Report. Also added edge cases: division by zero ($v=0$), $u < v$, $u = v$, $v = 1$, and Step D6 add-back activation.                                           | **Done** | `run_phuc_tests()` in `bigint_phuc.c`             |
+| **3. Automated Oracle Testing**                | Automated test suite validating `big_divmod` against 64-bit hardware integer division (500 random cases) and large-number mathematical invariants $u = q \times v + r$ with $0 \le r < v$ (200 cases up to 100 decimal digits).                                            | **Done** | `run_oracle_tests()` (100% pass rate)             |
+| **4. Empirical Complexity Notes for Division** | Measured execution times of `big_divmod` across scaling limb counts ($N = 10$ to $640$ limbs) to empirically confirm the $O(m \cdot n)$ quadratic complexity ($T(2N)/T(N) \approx 4\times$).                                                                               | **Done** | `run_division_benchmark()`                        |
+| **5. Subsystem Integration**                   | Connected `big_divmod` into Hoàng's `big_modexp` and `big_modexp_naive`, allowing the Week 1 modexp trace ($7^{13} \pmod{11} = 2$) to succeed.                                                                                                                             | **Done** | `run_hoang_test()` passed                         |
 
 ---
 
 ## 2. Technical Implementation: Knuth's Algorithm D (`big_divmod`)
 
 The function signature in [bigint.h](bigint.h) is:
+
 ```c
 int big_divmod(const BigInt *u, const BigInt *v, BigInt **quotient, BigInt **remainder);
 ```
@@ -101,7 +103,8 @@ TEST 7^13 mod 11 -> RESULT: 2 (EXPECTED BASED ON TRACE: 2)
 === PHUC'S UNIT TESTS COMPLETED ===
 ```
 
-### Trace Verification:
+### Trace Verification
+
 - In Week 1 Report Section 4.3: $95432 \div 187 = 510$ with remainder $62$.
 - Verification: $510 \times 187 + 62 = 95370 + 62 = 95432$.
 - Our implementation produces exact matches for both $q$ and $r$.
@@ -135,14 +138,14 @@ To verify general correctness beyond fixed test vectors, two automated oracle te
 The empirical complexity benchmark was run on Windows using GCC (`-O2`). The dividend length was set to $2N$ limbs ($m = N$ extra limbs) and the divisor length was $N$ limbs, across $N = 10$ to $640$ limbs (representing integers up to ~2,560 decimal digits):
 
 | Limbs ($N$) | Digits ($\approx 4N$) | Iterations | Average Time ($\mu\text{s}$) | Ratio $T(N) / T(N/2)$ |
-|:---:|:---:|:---:|:---:|:---:|
-| 10  | 40   | 500 | $< 1.0\,\mu\text{s}$ | — |
-| 20  | 80   | 500 | $2.00\,\mu\text{s}$ | — |
-| 40  | 160  | 500 | $4.00\,\mu\text{s}$ | $2.00\times$ |
-| 80  | 320  | 100 | $10.00\,\mu\text{s}$ | $2.50\times$ |
-| 160 | 640  | 100 | $50.00\,\mu\text{s}$ | $5.00\times$ |
-| 320 | 1280 | 20  | $250.00\,\mu\text{s}$ | $5.00\times$ |
-| 640 | 2560 | 5   | $1000.00\,\mu\text{s}$ | $4.00\times$ |
+| :---------: | :-------------------: | :--------: | :--------------------------: | :-------------------: |
+|     10      |          40           |    500     |     $< 1.0\,\mu\text{s}$     |           —           |
+|     20      |          80           |    500     |     $2.00\,\mu\text{s}$      |           —           |
+|     40      |          160          |    500     |     $4.00\,\mu\text{s}$      |     $2.00\times$      |
+|     80      |          320          |    100     |     $10.00\,\mu\text{s}$     |     $2.50\times$      |
+|     160     |          640          |    100     |     $50.00\,\mu\text{s}$     |     $5.00\times$      |
+|     320     |         1280          |     20     |    $250.00\,\mu\text{s}$     |     $5.00\times$      |
+|     640     |         2560          |     5      |    $1000.00\,\mu\text{s}$    |     $4.00\times$      |
 
 ### 5.2. Analysis & Discussion
 
