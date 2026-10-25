@@ -134,7 +134,7 @@ void bigint_to_string(const BigInt *num, char *buffer, size_t max_len)
         return;
     size_t pos = 0;
 
-    if (num->sign == -1 && (num->size == 1 && num->digits[0] == 0))
+    if (num->sign == -1 && !(num->size == 1 && num->digits[0] == 0))
     {
         if (pos < max_len - 1)
             buffer[pos++] = '-';
@@ -254,7 +254,13 @@ BigInt *bigint_mul(const BigInt *a, const BigInt *b)
 BigInt *big_modexp_naive(const BigInt *base, const BigInt *exp, const BigInt *mod)
 {
     BigInt *res = int_to_bigint_internal(1);
-    BigInt *cur = bigint_mul(base, int_to_bigint_internal(1)); // copy base
+    BigInt *cur = bigint_copy(base);
+    if (mod)
+    {
+        BigInt *reduced = big_mod(cur, mod);
+        free_bigint(cur);
+        cur = reduced;
+    }
 
     // extract scalar
     uint64_t e = 0;
@@ -264,9 +270,16 @@ BigInt *big_modexp_naive(const BigInt *base, const BigInt *exp, const BigInt *mo
     for (uint64_t i = 0; i < e; i++)
     {
         BigInt *temp = bigint_mul(res, cur);
-        // NOTE: NEED big_divmod REMAINDER (todo)
         free_bigint(res);
-        res = temp;
+        if (mod)
+        {
+            res = big_mod(temp, mod);
+            free_bigint(temp);
+        }
+        else
+        {
+            res = temp;
+        }
     }
     free_bigint(cur);
     return res;
@@ -276,7 +289,13 @@ BigInt *big_modexp_naive(const BigInt *base, const BigInt *exp, const BigInt *mo
 BigInt *big_modexp(const BigInt *base, const BigInt *exp, const BigInt *mod)
 {
     BigInt *res = int_to_bigint_internal(1);
-    BigInt *cur = bigint_mul(base, int_to_bigint_internal(1));
+    BigInt *cur = bigint_copy(base);
+    if (mod)
+    {
+        BigInt *reduced = big_mod(cur, mod);
+        free_bigint(cur);
+        cur = reduced;
+    }
 
     uint64_t e = 0;
     for (int i = (int)exp->size - 1; i >= 0; i--)
@@ -287,14 +306,28 @@ BigInt *big_modexp(const BigInt *base, const BigInt *exp, const BigInt *mod)
         if (e & 1)
         {
             BigInt *temp = bigint_mul(res, cur);
-            // TEMP = MOD RED VS MOD
             free_bigint(res);
-            res = temp;
+            if (mod)
+            {
+                res = big_mod(temp, mod);
+                free_bigint(temp);
+            }
+            else
+            {
+                res = temp;
+            }
         }
         BigInt *squared_cur = bigint_mul(cur, cur);
-        // squaredcur = mod red vs mod
         free_bigint(cur);
-        cur = squared_cur;
+        if (mod)
+        {
+            cur = big_mod(squared_cur, mod);
+            free_bigint(squared_cur);
+        }
+        else
+        {
+            cur = squared_cur;
+        }
         e >>= 1;
     }
     free_bigint(cur);
