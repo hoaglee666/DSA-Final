@@ -271,7 +271,7 @@ BigInt *big_modexp_naive(const BigInt *base, const BigInt *exp, const BigInt *mo
     bigint_to_string(cur, buf_cur, sizeof(buf_cur));
     printf("[NAIVE TRACE START] BASE b = %s, EXPONENT e = %lu, INITIAL ACCUMULATOR r = 1\n", buf_cur, e);
 
-    for (uint64_t i = 0; i <= e; i++)
+    for (uint64_t i = 1; i <= e; i++)
     {
         bigint_to_string(res, buf_res, sizeof(buf_res));
         BigInt *temp = bigint_mul(res, cur);
