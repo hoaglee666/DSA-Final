@@ -267,9 +267,16 @@ BigInt *big_modexp_naive(const BigInt *base, const BigInt *exp, const BigInt *mo
     for (int i = (int)exp->size - 1; i >= 0; i--)
         e = e * BASE + exp->digits[i];
 
-    for (uint64_t i = 0; i < e; i++)
+    char buf_res[128], buf_cur[128], buf_prod[128];
+    bigint_to_string(cur, buf_cur, sizeof(buf_cur));
+    printf("===[NAIVE TRACE START] BASE b = %s, EXPONENT e = %lu, INITIAL ACCUMULATOR r = 1\n", buf_cur, e);
+
+    for (uint64_t i = 0; i <= e; i++)
     {
+        bigint_to_string(res, buf_res, sizeof(buf_res));
         BigInt *temp = bigint_mul(res, cur);
+        bigint_to_string(temp, buf_prod, sizeof(buf_prod));
+
         free_bigint(res);
         if (mod)
         {
@@ -280,6 +287,9 @@ BigInt *big_modexp_naive(const BigInt *base, const BigInt *exp, const BigInt *mo
         {
             res = temp;
         }
+
+        bigint_to_string(res, buf_res, sizeof(buf_res));
+        printf("-> NAIVE STEP %lu/%lu: r * b = %s -> MOD REDUCTION -> NEW r = %s\n", i, e, buf_prod, buf_res);
     }
     free_bigint(cur);
     return res;
@@ -301,35 +311,74 @@ BigInt *big_modexp(const BigInt *base, const BigInt *exp, const BigInt *mod)
     for (int i = (int)exp->size - 1; i >= 0; i--)
         e = e * BASE + exp->digits[i];
 
-    while (e > 0)
+    char buf_res[128], buf_cur[128], buf_sq[128], buf_mult[128];
+    bigint_to_string(cur, buf_cur, sizeof(buf_cur));
+
+    // binary conv
+    uint64_t temp_e = e;
+    int bit_len = 0;
+    while (temp_e > 0)
     {
-        if (e & 1)
+        bit_len++;
+        temp_e >>= 1;
+    }
+    if (bit_len == 0)
+        bit_len = 1;
+
+    printf("   [FAST MODEXP] EXPONENT %lu IN BINARY is (%d bits)\n", e, bit_len);
+    printf("   INITIAL STATE: r = 1, base b = %s\n", buf_cur);
+
+    // msb-lsb
+    int highest_bit = -1;
+    for (int b_idx = 63; b_idx >= 0; b_idx--)
+    {
+        if ((e >> b_idx) & 1)
         {
-            BigInt *temp = bigint_mul(res, cur);
-            free_bigint(res);
-            if (mod)
-            {
-                res = big_mod(temp, mod);
-                free_bigint(temp);
-            }
-            else
-            {
-                res = temp;
-            }
+            highest_bit = b_idx;
+            break;
         }
-        BigInt *squared_cur = bigint_mul(cur, cur);
-        free_bigint(cur);
-        if (mod)
+    }
+
+    int step = 1;
+    for (int b_idx = highest_bit; b_idx >= 0; b_idx--)
+    {
+        int bit = (e >> b_idx) & 1;
+        int is_msb = (b_idx == highest_bit) ? 1 : 0;
+
+        bigint_to_string(res, buf_res, sizeof(buf_res));
+        printf("   -> STEP %d (BIT = %d%s): ", step++, bit, is_msb ? ", MSB" : "");
+
+        // square opera: r^2 mod m
+        BigInt *squared_res = bigint_mul(res, res);
+        BigInt *mod_squared_res = mod ? big_mod(squared_res, mod) : bigint_copy(squared_res);
+        free_bigint(squared_res);
+        bigint_to_string(mod_squared_res, buf_sq, sizeof(buf_sq));
+
+        if (bit)
         {
-            cur = big_mod(squared_cur, mod);
-            free_bigint(squared_cur);
+            // snm by base
+            BigInt *mult = bigint_mul(mod_squared_res, cur);
+            BigInt *mod_mult = mod ? big_mod(mult, mod) : bigint_copy(mult);
+            free_bigint(mult);
+            bigint_to_string(mod_mult, buf_mult, sizeof(buf_mult));
+
+            printf("SQUARE r^2 mod m = %s; MULTIPLY BY BASE -> %s mod m\n", buf_sq, buf_mult);
+            free_bigint(res);
+            res = mod_mult;
         }
         else
         {
-            cur = squared_cur;
+            // bit = 0
+            printf("SQUARE r^2 mod m = %s (MULTIPLY SKIPPED)\n", buf_sq);
+            free_bigint(res);
+            res = mod_squared_res;
         }
-        e >>= 1;
+        free_bigint(mod_squared_res);
+
+        bigint_to_string(res, buf_res, sizeof(buf_res));
+        printf("      UPDATED ACCUMULATOR -> r = %s\n", buf_res);
     }
+
     free_bigint(cur);
     return res;
 }
@@ -339,35 +388,39 @@ void run_hoang_test()
     printf("=== RUNNING HOANG UNIT TESTS ===\n");
     printf("\n---1. ADDITION & SUBTRACTION TESTING ---\n");
 
+    char buf[128];
+
     BigInt *a = string_to_bigint("987654321");
     BigInt *b = string_to_bigint("123456789");
-
     BigInt *sum = bigint_add(a, b);
-    char buf_sum[128];
-    bigint_to_string(sum, buf_sum, sizeof(buf_sum));
-    printf("987654321 + 123456789 = %s (EXPECTED 1111111110)\n", buf_sum);
-
     BigInt *diff = bigint_sub(a, b);
-    char buf_diff[128];
-    bigint_to_string(diff, buf_diff, sizeof(buf_diff));
-    printf("987654321 - 123456789 = %s (EXPECTED 864197532)\n", buf_diff);
+
+    bigint_to_string(sum, buf, sizeof(buf));
+    printf("987654321 + 123456789 = %s (EXPECTED 1111111110)\n", buf);
+    bigint_to_string(diff, buf, sizeof(buf));
+    printf("987654321 - 123456789 = %s (EXPECTED 864197532)\n", buf);
 
     printf("\n---2. MULTIPLICATION TESTING ---\n");
     BigInt *m1 = string_to_bigint("1234");
     BigInt *m2 = string_to_bigint("5678");
     BigInt *prod = bigint_mul(m1, m2);
-    char buf_prod[128];
-    bigint_to_string(prod, buf_prod, sizeof(buf_prod));
-    printf("1234 * 5678 = %s (EXPECTED 7006652)\n", buf_prod);
+    bigint_to_string(prod, buf, sizeof(buf));
+    printf("1234 * 5678 = %s (EXPECTED 7006652)\n", buf);
 
     printf("\n---3. ModExp TESTING ---\n");
     BigInt *b7 = string_to_bigint("7");
     BigInt *e13 = string_to_bigint("13");
     BigInt *m11 = string_to_bigint("11");
-    BigInt *ans = big_modexp(b7, e13, m11);
-    char buf_mod[128];
-    bigint_to_string(ans, buf_mod, sizeof(buf_mod));
-    printf("TEST 7^13 mod 11 -> RESULT: %s (EXPECTED BASED ON TRACE: 2)\n", buf_mod);
+
+    printf("\n---3.1. FAST MODULAR EXPONENTIATION TESTING ---\n");
+    BigInt *ans_fast = big_modexp(b7, e13, m11);
+    bigint_to_string(ans_fast, buf, sizeof(buf));
+    printf("FAST MODEXP 7^13 mod 11 -> RESULT: %s (EXPECTED: 2)\n", buf);
+
+    printf("\n---3.2. NAIVE MODULAR EXPONENTIATION TESTING ---\n");
+    BigInt *ans_naive = big_modexp_naive(b7, e13, m11);
+    bigint_to_string(ans_naive, buf, sizeof(buf));
+    printf("NAIVE MODEXP 7^13 mod 11 -> RESULT: %s (EXPECTED: 2)\n", buf);
 
     free_bigint(a);
     free_bigint(b);
@@ -381,7 +434,8 @@ void run_hoang_test()
     free_bigint(b7);
     free_bigint(e13);
     free_bigint(m11);
-    free_bigint(ans);
+    free_bigint(ans_fast);
+    free_bigint(ans_naive);
 
-    printf("=== UNIT TESTS COMPLETED ===\n");
+    printf("=== HOANG'S UNIT TESTS COMPLETED ===\n");
 }
