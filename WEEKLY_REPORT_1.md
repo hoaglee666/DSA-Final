@@ -7,8 +7,8 @@
 **Repository & Evidence Links:**
 
 - **Public GitHub Repository:** [https://github.com/hoaglee666/DSA-Final.git]
-- **Report File Link:** [https://github.com/hoaglee666/DSA-Final.git/blob/main/WEEKLY_REPORT_1.md]
-- **Initial Commit Link:** [https://github.com/hoaglee666/DSA-Final/commit/6e1bc5b13b05abe84a8986c118c87e2dd6e7d816]
+- **Report File Link:** [https://github.com/hoaglee666/DSA-Final/blob/main/WEEKLY_REPORT_1.md]
+- **Commit Link:** [https://github.com/hoaglee666/DSA-Final/commit/6e1bc5b13b05abe84a8986c118c87e2dd6e7d816]
 
 **Project family:** NUMERIC
 
@@ -121,13 +121,13 @@ _Hand trace steps_:
 - Why this DSA: Storing limbs in little-endian order helps arithmetic loops start at index 0 (LSD), matching how carries propagate. Square and multiply calculates large powers efficiently without multiplying the base repeatedly (multiplying only when the bit is 1). This reduces the number of operations. If naively multiplying the base repeatedly, it takes $O(k)$ multiplications for an exponent with value $k$; square and multiply takes $O(\log k)$ or $O(L^2 \log k)$ time when each multiplication on $L$-limb integers uses ordinary multiplication. If the exponent has $k$ binary bits, this is $O(kL^2)$.
 - Syllabus topics needed: Arrays & pointers (L6-L7), Big-O complexity (L2), D-n-C recurrences.
 
-### 7.2. Teach-Back: Long Division [Phúc]
+### 7.2. Long Division [Phúc]
 
 - Trace summary: First normalize the divisor and dividend by factor $d$ so that the leading divisor limb is $\le \lfloor b / 2 \rfloor$. In each iteration $j$, estimate a trial quotient with the leading limbs of the remainder window divided by the leading limbs of the divisor, then test if needed and multiply and subtract.
 - Why this DSA: Contiguous arrays help direct index access, making it easy to test the current division window, estimate quotient digits, and perform multiplication and subtraction. This is ideal for high-speed multi-precision numerical computations. Time complexity is $O(mn)$, where $m$ is the number of extra dividend limbs and $n$ is the number of divisor limbs.
 - Syllabus topics needed: Array indexing & memory layout, numerical algorithms, and loop invariants (L2 & L6).
 
-## 8. AI Log
+## 8. AI log
 
 | #   | Date       | Student | Tool   | Prompt                                                                | Output                                                                     | Verification                        | Changed                                             |
 | --- | ---------- | ------- | ------ | --------------------------------------------------------------------- | -------------------------------------------------------------------------- | ----------------------------------- | --------------------------------------------------- |
