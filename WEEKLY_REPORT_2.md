@@ -245,10 +245,10 @@ How it works, for each exponent bit:
 
 **Loop invariant:**
 
-1. Invariant: At start of iteration, $res$ is base raised to power of exponent bits already processed. If modulus provided, $res$ is that value module $\pmod$. If processed bits have numberical value $p$: $res \equiv base^p \pmod {mod}$
-2. Initialization: First, $res = 1$, before processing bits, $p = 0$, $base^0 = 1$, invariant true.
-3. Maintenance: For next bit b, processed exponent become $2p + b$. First, square $res$, $base^{2p}$. If b = 1, multiply by base to get $base^{2p + 1}$, b = 0; skip multiplication. Invariant true.
-4. Termination: After exponent bits processed, $p = exp$. Function returns $res \equiv base^{exp} \pmod {mod}$
+1. At start of iteration, $res$ is base raised to power of exponent bits already processed. If modulus provided, $res$ is that value modulo $mod$. If processed bits have numberical value $p$: $res \equiv base^p \pmod {mod}$
+2. First, $res = 1$, before processing bits, $p = 0$, $base^0 = 1$, invariant true.
+3. For next bit b, processed exponent become $2p + b$. First, square $res$, $base^{2p}$. If b = 1, multiply by base to get $base^{2p + 1}$, b = 0; skip multiplication. Invariant true.
+4. After exponent bits processed, $p = exp$. Function returns $res \equiv base^{exp} \pmod {mod}$
 
 **Test output**:
 
@@ -315,10 +315,10 @@ for (int j = (int)m; j >= 0; j--) {
 
 Main loop processes quotient digits from highest position $m$ to 0.
 
-1. Invariant: At start of iteration, the higher quotient already calculated. The remaining portion of normalized dividend is less than $v' \cdot BASE$, so next quotient digit represented by single limb.
-2. Initialization: At $j = m$, no quotient digits calculated. Since normalized dividend has at most $m + n + 1$ limbs, first quotient digit estimated from its highest limbs.
-3. Maintenance: Algorithm estimate next quotient digit $\hat{q}$, correct if necessary, subtract $\hat{q} \cdot v'$ from divident portion. If estimate too large, addback corrects it. Result remainder smaller than $v'$, so next lower quotient digit to be calculated.
-4. Termination: When loop finishes, all quotient digits determined. Remaining low $n$ limbs represent normalized remainder, divided by $d$ to recover original remainder. Function returns quotient and remainder.
+1. At start of iteration, higher quotients already calculated. Remaining portion of normalized dividend is less than $v' \cdot BASE$, so next quotient digit represented by single limb.
+2. At $j = m$, no quotient digits calculated. Since normalized dividend has at most $m + n + 1$ limbs, first quotient digit estimated from its highest limbs.
+3. Algorithm estimate next quotient digit $\hat{q}$, correct if necessary, subtract $\hat{q} \cdot v'$ from divident portion. If estimate too large, addback corrects it. Result remainder smaller than $v'$, so next lower quotient digit to be calculated.
+4. When loop finishes, all quotient digits determined. Remaining low $n$ limbs represent normalized remainder, divided by $d$ to recover original remainder. Function returns quotient and remainder.
 
 **Test output**:
 
