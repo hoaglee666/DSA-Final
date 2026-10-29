@@ -24,7 +24,7 @@
 | Đào Nguyên Phúc | Knuth's algorithm D (`big_divmod`), helpers (`big_div`, `big_mod`), signed division, unit tests, edge case suite, 1st complexity derivation draft                                                                                                                                                 | **Done** | `bigint_phuc.c`, `main.c`    |
 | Lê Huy Hoàng    | Dynamic memory lifecycle (`create_bigint`, `free_bigint`), IO string conversion (`string_to_bigint`, `bigint_to_string`), basic arithmetic (`bigint_add`, `bigint_sub`, `bigint_mul`), fast modexp (`big_modexp`), naive modexp (`big_modexp_naive`), unit tests, 1st complexity derivation draft | **Done** | `bigint.h`, `bigint_hoang.c` |
 
-## 2. Core structure
+## 2. Core structure [Shared]
 
 ```c
 typedef struct {
