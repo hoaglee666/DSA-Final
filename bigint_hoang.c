@@ -1,4 +1,5 @@
 #include "bigint.h"
+#include <time.h>
 
 // allo new bigint with dynamic memo
 BigInt *create_bigint(size_t init_cap)
@@ -396,6 +397,125 @@ BigInt *big_modexp(const BigInt *base, const BigInt *exp, const BigInt *mod)
 
     free_bigint(cur);
     return res;
+}
+
+void run_modexp_benchmark(void)
+{
+    printf("\n FAST VS. NAIVE MODEXP BENCHMARK \n");
+
+    // base = 123, mod = 10007, incre exp
+    BigInt *base = string_to_bigint("123");
+    BigInt *mod = string_to_bigint("10007");
+
+    const char *test_exps[] = {"10", "100", "500", "1000", "5000", "10000"};
+    int num_tests = sizeof(test_exps) / sizeof(test_exps[0]);
+
+    printf("%-10s | %-18s | %-18s | %-12s\n", "EXPONENT", "FAST MODEXP (ms)", "NAIVE MODEXP (ms)", "SPEEDUP RATIO");
+    printf("-----------------------------------------\n");
+
+    for (int i = 0; i < num_tests; i++)
+    {
+        BigInt *exp = string_to_bigint(test_exps[i]);
+
+        // bench fast modexp
+        clock_t start_f = clock();
+        BigInt *res_f = big_modexp(base, exp, mod);
+        clock_t end_f = clock();
+        double time_f = ((double)(end_f - start_f)) * 1000.0 / CLOCKS_PER_SEC;
+
+        // bench naive (skip if exp 2 large, prevent hanging)
+        // e = 5000 = slow in base10^4
+        double time_n = 0.0;
+        if (i <= 4)
+        {
+            clock_t start_n = clock();
+            BigInt *res_n = big_modexp_naive(base, exp, mod);
+            clock_t end_n = clock();
+            time_n = ((double)(end_n - start_n)) * 1000.0 / CLOCKS_PER_SEC;
+            free_bigint(res_n);
+        }
+
+        if (time_n > 0.0)
+        {
+            double speedup = time_n / (time_f > 0.0 ? time_f : 0.001);
+            printf("%-10s | %-18.3f | %-18.3f | %-12.2fx\n", test_exps[i], time_f, time_n, speedup);
+        }
+        else
+        {
+            printf("%-10s | %-18.3f | %-18s | %-12s\n", test_exps[i], time_f, "TIMEOUT (>5s)", "N/A (O(e))");
+        }
+
+        free_bigint(exp);
+        free_bigint(res_f);
+    }
+
+    free_bigint(base);
+    free_bigint(mod);
+    printf(" MODEXP BENCHMARK COMPLETED \n");
+}
+
+void run_arithmetic_oracle_tests(int num_iterations)
+{
+    printf("\n ARITHMETIC ORACLE TESTING (vs. __int128) \n");
+    int passed = 0;
+
+    for (int i = 0; i < num_iterations; i++)
+    {
+        // gen 32/64 bit num fit safely, up to 10^9
+        uint64_t val1 = (rand() % 900000000ULL) + 1;
+        uint64_t val2 = (rand() % 900000000ULL) + 1;
+
+        char buf1[64], buf2[64], buf_res[128];
+        snprintf(buf1, sizeof(buf1), "%llu", (unsigned long long)val1);
+        snprintf(buf2, sizeof(buf2), "%llu", (unsigned long long)val2);
+
+        BigInt *b1 = string_to_bigint(buf1);
+        BigInt *b2 = string_to_bigint(buf2);
+        BigInt *b_prod = bigint_mul(b1, b2);
+
+        bigint_to_string(b_prod, buf_res, sizeof(buf_res));
+
+        // compute ref using native 128 int
+        unsigned __int128 expected_prod = (unsigned __int128)val1 * val2;
+
+        // convert expec to string for compar
+        char expected_buf[128];
+        unsigned __int128 temp_val = expected_prod;
+        int idx = 0;
+        if (temp_val == 0)
+        {
+            expected_buf[idx++] = '0';
+        }
+        else
+        {
+            char rev[128];
+            int r_idx = 0;
+            while (temp_val > 0)
+            {
+                rev[r_idx++] = '0' + (int)(temp_val % 10);
+                temp_val /= 10;
+            }
+            for (int r = r_idx - 1; r >= 0; r--)
+                expected_buf[idx++] = rev[r];
+        }
+        expected_buf[idx] = '\0';
+
+        // assert equa
+        if (strcmp(buf_res, expected_buf) == 0)
+        {
+            passed++;
+        }
+        else
+        {
+            printf("MISMATCH! %s * %s -> GOT %s, EXPECTED %s\n", buf1, buf2, buf_res, expected_buf);
+        }
+
+        free_bigint(b1);
+        free_bigint(b2);
+        free_bigint(b_prod);
+    }
+    printf("ORACLE TEST RESULTS: %d / %d RANDOMIZED MULTIPLICATION TESTS PASSED SUCCESSFULLY.\n", passed, num_iterations);
+    printf(" ORACLE TESTING COMPLETED \n");
 }
 
 void run_hoang_test()

@@ -9,7 +9,8 @@
 #define BASE 10000 // 10^4
 #define DIGIT_WIDTH 4
 
-typedef struct {
+typedef struct
+{
   uint32_t *digits; // little endian limb arr
   size_t size;      // cur num of act limbs
   size_t capacity;  // total allo capa
@@ -53,6 +54,8 @@ BigInt *big_mod(const BigInt *u, const BigInt *v);
 
 // unit tests & benchmarks
 void run_hoang_test(void);
+void run_modexp_benchmark(void);
+void run_arithmetic_oracle_tests(int num_iterations);
 void run_phuc_tests(void);
 void run_oracle_tests(void);
 void run_division_benchmark(void);
