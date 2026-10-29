@@ -37,8 +37,8 @@ BigInt *bigint_add(const BigInt *a, const BigInt *b);
 BigInt *bigint_sub(const BigInt *a, const BigInt *b);
 BigInt *bigint_mul(const BigInt *a, const BigInt *b);
 BigInt *big_modexp_naive(const BigInt *base, const BigInt *exp,
-                         const BigInt *mod);
-BigInt *big_modexp(const BigInt *base, const BigInt *exp, const BigInt *mod);
+                         const BigInt *mod, int verbose);
+BigInt *big_modexp(const BigInt *base, const BigInt *exp, const BigInt *mod, int verbose);
 
 // compatibility aliases
 #define bgint_add bigint_add

@@ -9,13 +9,13 @@ BigInt *create_bigint(size_t init_cap)
     BigInt *num = (BigInt *)malloc(sizeof(BigInt));
     if (!num)
     {
-        perror("allocation failed");
+        perror("ALLOCATION FAILED");
         exit(EXIT_FAILURE);
     }
     num->digits = (uint32_t *)calloc(init_cap, sizeof(uint32_t));
     if (!num->digits)
     {
-        perror("allocation failed");
+        perror("ALLOCATION FAILED");
         exit(EXIT_FAILURE);
     }
     num->size = 1;
@@ -252,7 +252,7 @@ BigInt *bigint_mul(const BigInt *a, const BigInt *b)
 }
 
 // naive
-BigInt *big_modexp_naive(const BigInt *base, const BigInt *exp, const BigInt *mod)
+BigInt *big_modexp_naive(const BigInt *base, const BigInt *exp, const BigInt *mod, int verbose)
 {
     BigInt *res = int_to_bigint_internal(1);
     BigInt *cur = bigint_copy(base);
@@ -270,7 +270,8 @@ BigInt *big_modexp_naive(const BigInt *base, const BigInt *exp, const BigInt *mo
 
     char buf_res[128], buf_cur[128], buf_prod[128];
     bigint_to_string(cur, buf_cur, sizeof(buf_cur));
-    printf("[NAIVE TRACE START] BASE b = %s, EXPONENT e = %lu, INITIAL ACCUMULATOR r = 1\n", buf_cur, e);
+    if (verbose)
+        printf("[NAIVE MODEXP] BASE b = %s, EXPONENT e = %lu, INITIAL ACCUMULATOR r = 1\n", buf_cur, e);
 
     for (uint64_t i = 1; i <= e; i++)
     {
@@ -288,16 +289,18 @@ BigInt *big_modexp_naive(const BigInt *base, const BigInt *exp, const BigInt *mo
         {
             res = temp;
         }
-
-        bigint_to_string(res, buf_res, sizeof(buf_res));
-        printf("-> NAIVE STEP %lu/%lu: r * b = %s -> MOD REDUCTION -> NEW r = %s\n", i, e, buf_prod, buf_res);
+        if (verbose)
+        {
+            bigint_to_string(res, buf_res, sizeof(buf_res));
+            printf("-> NAIVE STEP %lu/%lu: r * b = %s -> MOD REDUCTION -> NEW r = %s\n", i, e, buf_prod, buf_res);
+        }
     }
     free_bigint(cur);
     return res;
 }
 
 // square and mul
-BigInt *big_modexp(const BigInt *base, const BigInt *exp, const BigInt *mod)
+BigInt *big_modexp(const BigInt *base, const BigInt *exp, const BigInt *mod, int verbose)
 {
     BigInt *res = int_to_bigint_internal(1);
     BigInt *cur = bigint_copy(base);
@@ -341,8 +344,11 @@ BigInt *big_modexp(const BigInt *base, const BigInt *exp, const BigInt *mod)
     }
     bin_buf[bin_idx] = '\0';
 
-    printf("[FAST MODEXP] EXPONENT %lu IN BINARY is %s_2 (%d bits)\n", e, bin_buf, bit_len);
-    printf("INITIAL STATE: r = 1, base b = %s\n", buf_cur);
+    if (verbose)
+    {
+        printf("[FAST MODEXP] EXPONENT %lu IN BINARY is %s_2 (%d bits)\n", e, bin_buf, bit_len);
+        printf("INITIAL STATE: r = 1, base b = %s\n", buf_cur);
+    }
 
     // msb-lsb
     int highest_bit = -1;
@@ -362,7 +368,8 @@ BigInt *big_modexp(const BigInt *base, const BigInt *exp, const BigInt *mod)
         int is_msb = (b_idx == highest_bit) ? 1 : 0;
 
         bigint_to_string(res, buf_res, sizeof(buf_res));
-        printf("-> STEP %d (BIT = %d%s): ", step++, bit, is_msb ? ", MSB" : "");
+        if (verbose)
+            printf("-> STEP %d (BIT = %d%s): ", step++, bit, is_msb ? ", MSB" : "");
 
         // square opera: r^2 mod m
         BigInt *squared_res = bigint_mul(res, res);
@@ -379,20 +386,25 @@ BigInt *big_modexp(const BigInt *base, const BigInt *exp, const BigInt *mod)
             free_bigint(mod_squared_res); // can free bc modsq isnt assign to res
 
             bigint_to_string(mod_mult, buf_mult, sizeof(buf_mult));
-            printf("SQUARE r^2 mod m = %s; MULTIPLY BY BASE -> %s mod m\n", buf_sq, buf_mult);
+            if (verbose)
+                printf("SQUARE r^2 mod m = %s; MULTIPLY BY BASE -> %s mod m\n", buf_sq, buf_mult);
+
             free_bigint(res);
             res = mod_mult;
         }
         else
         {
             // bit = 0
-            printf("SQUARE r^2 mod m = %s (MULTIPLY SKIPPED)\n", buf_sq);
+            if (verbose)
+                printf("SQUARE r^2 mod m = %s (MULTIPLY SKIPPED)\n", buf_sq);
+
             free_bigint(res);
             res = mod_squared_res;
         }
 
         bigint_to_string(res, buf_res, sizeof(buf_res));
-        printf("UPDATED ACCUMULATOR -> r = %s\n", buf_res);
+        if (verbose)
+            printf("UPDATED ACCUMULATOR -> r = %s\n", buf_res);
     }
 
     free_bigint(cur);
@@ -401,7 +413,7 @@ BigInt *big_modexp(const BigInt *base, const BigInt *exp, const BigInt *mod)
 
 void run_modexp_benchmark(void)
 {
-    printf("\n FAST VS. NAIVE MODEXP BENCHMARK \n");
+    printf("\nFAST VS. NAIVE MODEXP BENCHMARK\n");
 
     // base = 123, mod = 10007, incre exp
     BigInt *base = string_to_bigint("123");
@@ -411,7 +423,7 @@ void run_modexp_benchmark(void)
     int num_tests = sizeof(test_exps) / sizeof(test_exps[0]);
 
     printf("%-10s | %-18s | %-18s | %-12s\n", "EXPONENT", "FAST MODEXP (ms)", "NAIVE MODEXP (ms)", "SPEEDUP RATIO");
-    printf("-----------------------------------------\n");
+    printf("--------------------------------------------------------------\n");
 
     for (int i = 0; i < num_tests; i++)
     {
@@ -419,7 +431,7 @@ void run_modexp_benchmark(void)
 
         // bench fast modexp
         clock_t start_f = clock();
-        BigInt *res_f = big_modexp(base, exp, mod);
+        BigInt *res_f = big_modexp(base, exp, mod, 0);
         clock_t end_f = clock();
         double time_f = ((double)(end_f - start_f)) * 1000.0 / CLOCKS_PER_SEC;
 
@@ -429,7 +441,7 @@ void run_modexp_benchmark(void)
         if (i <= 4)
         {
             clock_t start_n = clock();
-            BigInt *res_n = big_modexp_naive(base, exp, mod);
+            BigInt *res_n = big_modexp_naive(base, exp, mod, 0);
             clock_t end_n = clock();
             time_n = ((double)(end_n - start_n)) * 1000.0 / CLOCKS_PER_SEC;
             free_bigint(res_n);
@@ -438,7 +450,7 @@ void run_modexp_benchmark(void)
         if (time_n > 0.0)
         {
             double speedup = time_n / (time_f > 0.0 ? time_f : 0.001);
-            printf("%-10s | %-18.3f | %-18.3f | %-12.2fx\n", test_exps[i], time_f, time_n, speedup);
+            printf("%-10s | %-18.3f | %-18.3f | %-8.2fx\n", test_exps[i], time_f, time_n, speedup);
         }
         else
         {
@@ -451,12 +463,12 @@ void run_modexp_benchmark(void)
 
     free_bigint(base);
     free_bigint(mod);
-    printf(" MODEXP BENCHMARK COMPLETED \n");
+    printf("MODEXP BENCHMARK COMPLETED\n");
 }
 
 void run_arithmetic_oracle_tests(int num_iterations)
 {
-    printf("\n ARITHMETIC ORACLE TESTING (vs. __int128) \n");
+    printf("\nARITHMETIC ORACLE TESTING (vs. __int128)\n");
     int passed = 0;
 
     for (int i = 0; i < num_iterations; i++)
@@ -515,7 +527,7 @@ void run_arithmetic_oracle_tests(int num_iterations)
         free_bigint(b_prod);
     }
     printf("ORACLE TEST RESULTS: %d / %d RANDOMIZED MULTIPLICATION TESTS PASSED SUCCESSFULLY.\n", passed, num_iterations);
-    printf(" ORACLE TESTING COMPLETED \n");
+    printf(" ORACLE TESTING COMPLETED\n");
 }
 
 void run_hoang_test()
@@ -547,13 +559,13 @@ void run_hoang_test()
     BigInt *e13 = string_to_bigint("13");
     BigInt *m11 = string_to_bigint("11");
 
-    printf("\n-3.1. FAST MODULAR EXPONENTIATION TESTING\n");
-    BigInt *ans_fast = big_modexp(b7, e13, m11);
+    printf("3.1. FAST MODULAR EXPONENTIATION TESTING\n");
+    BigInt *ans_fast = big_modexp(b7, e13, m11, 1);
     bigint_to_string(ans_fast, buf, sizeof(buf));
     printf("FAST MODEXP 7^13 mod 11 -> RESULT: %s (EXPECTED: 2)\n", buf);
 
-    printf("\n-3.2. NAIVE MODULAR EXPONENTIATION TESTING\n");
-    BigInt *ans_naive = big_modexp_naive(b7, e13, m11);
+    printf("3.2. NAIVE MODULAR EXPONENTIATION TESTING\n");
+    BigInt *ans_naive = big_modexp_naive(b7, e13, m11, 1);
     bigint_to_string(ans_naive, buf, sizeof(buf));
     printf("NAIVE MODEXP 7^13 mod 11 -> RESULT: %s (EXPECTED: 2)\n", buf);
 
