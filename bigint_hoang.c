@@ -413,7 +413,7 @@ BigInt *big_modexp(const BigInt *base, const BigInt *exp, const BigInt *mod, int
 
 void run_modexp_benchmark(void)
 {
-    printf("\nFAST VS. NAIVE MODEXP BENCHMARK\n");
+    printf("\n=== FAST VS. NAIVE MODEXP BENCHMARK ===\n");
 
     // base = 123, mod = 10007, incre exp
     BigInt *base = string_to_bigint("123");
@@ -450,7 +450,7 @@ void run_modexp_benchmark(void)
         if (time_n > 0.0)
         {
             double speedup = time_n / (time_f > 0.0 ? time_f : 0.001);
-            printf("%-10s | %-18.3f | %-18.3f | %-8.2fx\n", test_exps[i], time_f, time_n, speedup);
+            printf("%-10s | %-18.3f | %-18.3f | %-8.2f\n", test_exps[i], time_f, time_n, speedup);
         }
         else
         {
@@ -463,12 +463,12 @@ void run_modexp_benchmark(void)
 
     free_bigint(base);
     free_bigint(mod);
-    printf("MODEXP BENCHMARK COMPLETED\n");
+    printf("=== MODEXP BENCHMARK COMPLETED ===\n");
 }
 
 void run_arithmetic_oracle_tests(int num_iterations)
 {
-    printf("\nARITHMETIC ORACLE TESTING (vs. __int128)\n");
+    printf("\n=== ARITHMETIC ORACLE TESTING (vs. __int128) ===\n");
     int passed = 0;
 
     for (int i = 0; i < num_iterations; i++)
@@ -527,7 +527,7 @@ void run_arithmetic_oracle_tests(int num_iterations)
         free_bigint(b_prod);
     }
     printf("ORACLE TEST RESULTS: %d / %d RANDOMIZED MULTIPLICATION TESTS PASSED SUCCESSFULLY.\n", passed, num_iterations);
-    printf(" ORACLE TESTING COMPLETED\n");
+    printf("=== ORACLE TESTING COMPLETED=== \n");
 }
 
 void run_hoang_test()

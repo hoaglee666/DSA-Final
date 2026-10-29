@@ -24,4 +24,7 @@ gcc -Wall -Wextra -O2 main.c bigint_hoang.c bigint_phuc.c -o final.exe
 
 # Execute test suite and empirical benchmark
 ./final.exe
+
+# Run valgrind
+valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./final
 ```
