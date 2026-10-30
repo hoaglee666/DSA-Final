@@ -22,42 +22,54 @@ int is_zero(const BigInt *a)
 // Single-limb division (fast short division path)
 static void divmod_single_limb(const BigInt *u, uint32_t v_digit, BigInt **quotient, BigInt **remainder)
 {
-    BigInt *q = create_bigint(u->size);
-    q->size = u->size;
-    q->sign = u->sign;
+    BigInt *q = NULL;
+    if (quotient)
+    {
+        q = create_bigint(u->size);
+        q->size = u->size;
+        q->sign = u->sign;
+    }
 
     uint64_t rem = 0;
     for (int i = (int)u->size - 1; i >= 0; i--)
     {
         uint64_t cur = rem * BASE + u->digits[i];
-        q->digits[i] = (uint32_t)(cur / v_digit);
+        if (q)
+            q->digits[i] = (uint32_t)(cur / v_digit);
         rem = cur % v_digit;
     }
-    trim_leading_zeros(q);
+    if (q)
+        trim_leading_zeros(q);
 
     BigInt *r = int_to_bigint_internal((int64_t)rem);
     r->sign = (rem == 0) ? 1 : u->sign;
 
-    *quotient = q;
+    if (quotient)
+        *quotient = q;
     *remainder = r;
 }
+
+#define STACK_SCRATCH_CAP 256
 
 /*
  * Knuth's Algorithm D (The Art of Computer Programming, Vol 2, Sec 4.3.1)
  * Multi-precision non-negative integer division.
  * Divides u (dividend) by v (divisor) to produce quotient and remainder:
  *   u = quotient * v + remainder, where 0 <= remainder < |v|
+ * Supports passing quotient == NULL when only remainder is needed (optimized for modexp).
+ * Uses stack scratchpads up to 256 limbs to eliminate heap overhead in inner loops.
  * Returns 0 on success, -1 on division by zero.
  */
 int big_divmod(const BigInt *u, const BigInt *v, BigInt **quotient, BigInt **remainder)
 {
-    if (!u || !v || !quotient || !remainder)
+    if (!u || !v || !remainder)
         return -1;
 
     // Check division by zero
     if (is_zero(v))
     {
-        *quotient = NULL;
+        if (quotient)
+            *quotient = NULL;
         *remainder = NULL;
         return -1;
     }
@@ -65,7 +77,8 @@ int big_divmod(const BigInt *u, const BigInt *v, BigInt **quotient, BigInt **rem
     // Edge case 1: Dividend is zero
     if (is_zero(u))
     {
-        *quotient = int_to_bigint_internal(0);
+        if (quotient)
+            *quotient = int_to_bigint_internal(0);
         *remainder = int_to_bigint_internal(0);
         return 0;
     }
@@ -75,14 +88,16 @@ int big_divmod(const BigInt *u, const BigInt *v, BigInt **quotient, BigInt **rem
     if (cmp < 0)
     {
         // |u| < |v|: quotient = 0, remainder = u
-        *quotient = int_to_bigint_internal(0);
+        if (quotient)
+            *quotient = int_to_bigint_internal(0);
         *remainder = bigint_copy(u);
         return 0;
     }
     if (cmp == 0)
     {
         // |u| == |v|: quotient = sign(u) * sign(v), remainder = 0
-        *quotient = int_to_bigint_internal((int64_t)(u->sign * v->sign));
+        if (quotient)
+            *quotient = int_to_bigint_internal((int64_t)(u->sign * v->sign));
         *remainder = int_to_bigint_internal(0);
         return 0;
     }
@@ -91,7 +106,8 @@ int big_divmod(const BigInt *u, const BigInt *v, BigInt **quotient, BigInt **rem
     if (v->size == 1)
     {
         divmod_single_limb(u, v->digits[0], quotient, remainder);
-        (*quotient)->sign = u->sign * v->sign;
+        if (quotient && *quotient)
+            (*quotient)->sign = u->sign * v->sign;
         return 0;
     }
 
@@ -101,19 +117,38 @@ int big_divmod(const BigInt *u, const BigInt *v, BigInt **quotient, BigInt **rem
 
     // Step D1: Normalize
     // Choose d = floor(BASE / (v_{n-1} + 1))
-    // This guarantees that the most significant limb of normalized divisor v' >= floor(BASE / 2)
+    // Guarantees leading limb of normalized divisor v' >= floor(BASE / 2)
     uint32_t vn_1 = v->digits[n - 1];
     uint32_t d = (uint32_t)(BASE / (vn_1 + 1));
 
-    uint32_t *u_prime = (uint32_t *)calloc(m + n + 1, sizeof(uint32_t));
-    uint32_t *v_prime = (uint32_t *)calloc(n, sizeof(uint32_t));
-    uint32_t *p_scratch = (uint32_t *)calloc(n + 1, sizeof(uint32_t));
-    if (!u_prime || !v_prime || !p_scratch)
+    // Performance optimization: fast stack scratchpad up to STACK_SCRATCH_CAP limbs
+    uint32_t u_stack[STACK_SCRATCH_CAP];
+    uint32_t v_stack[STACK_SCRATCH_CAP];
+    uint32_t p_stack[STACK_SCRATCH_CAP];
+    uint32_t *u_prime = u_stack;
+    uint32_t *v_prime = v_stack;
+    uint32_t *p_scratch = p_stack;
+    int is_dynamic = 0;
+
+    if (m + n + 1 > STACK_SCRATCH_CAP || n + 1 > STACK_SCRATCH_CAP)
     {
-        free(u_prime);
-        free(v_prime);
-        free(p_scratch);
-        return -1;
+        is_dynamic = 1;
+        u_prime = (uint32_t *)calloc(m + n + 1, sizeof(uint32_t));
+        v_prime = (uint32_t *)calloc(n, sizeof(uint32_t));
+        p_scratch = (uint32_t *)calloc(n + 1, sizeof(uint32_t));
+        if (!u_prime || !v_prime || !p_scratch)
+        {
+            free(u_prime);
+            free(v_prime);
+            free(p_scratch);
+            return -1;
+        }
+    }
+    else
+    {
+        memset(u_stack, 0, (m + n + 1) * sizeof(uint32_t));
+        memset(v_stack, 0, n * sizeof(uint32_t));
+        memset(p_stack, 0, (n + 1) * sizeof(uint32_t));
     }
 
     // Multiply v by d
@@ -135,10 +170,14 @@ int big_divmod(const BigInt *u, const BigInt *v, BigInt **quotient, BigInt **rem
     }
     u_prime[u->size] = (uint32_t)carry;
 
-    // Allocate quotient
-    BigInt *q = create_bigint(m + 1);
-    q->size = m + 1;
-    q->sign = u->sign * v->sign;
+    // Allocate quotient only if caller requested it
+    BigInt *q = NULL;
+    if (quotient)
+    {
+        q = create_bigint(m + 1);
+        q->size = m + 1;
+        q->sign = u->sign * v->sign;
+    }
 
     // Step D2: Loop j from m down to 0
     for (int j = (int)m; j >= 0; j--)
@@ -166,7 +205,6 @@ int big_divmod(const BigInt *u, const BigInt *v, BigInt **quotient, BigInt **rem
         }
 
         // Step D4: Multiply and subtract
-        // Compute P = q_hat * v_prime
         uint64_t mul_carry = 0;
         for (size_t i = 0; i < n; i++)
         {
@@ -207,11 +245,11 @@ int big_divmod(const BigInt *u, const BigInt *v, BigInt **quotient, BigInt **rem
             u_prime[j + n] = (uint32_t)((u_prime[j + n] + add_carry) % BASE);
         }
 
-        q->digits[j] = (uint32_t)q_hat;
+        if (q)
+            q->digits[j] = (uint32_t)q_hat;
     }
 
     // Step D8: Unnormalize to get remainder
-    // Remainder is in u_prime[0 .. n-1] divided by d
     BigInt *r = create_bigint(n);
     r->size = n;
     r->sign = u->sign;
@@ -224,17 +262,22 @@ int big_divmod(const BigInt *u, const BigInt *v, BigInt **quotient, BigInt **rem
         unnorm_rem = cur % d;
     }
 
-    trim_leading_zeros(q);
+    if (q)
+        trim_leading_zeros(q);
     trim_leading_zeros(r);
 
     if (is_zero(r))
         r->sign = 1;
 
-    free(u_prime);
-    free(v_prime);
-    free(p_scratch);
+    if (is_dynamic)
+    {
+        free(u_prime);
+        free(v_prime);
+        free(p_scratch);
+    }
 
-    *quotient = q;
+    if (quotient)
+        *quotient = q;
     *remainder = r;
     return 0;
 }
@@ -252,18 +295,17 @@ BigInt *big_div(const BigInt *u, const BigInt *v)
     return NULL;
 }
 
-// Modulo helper: returns remainder
+// Modulo helper: returns remainder (optimized: does not allocate unused quotient)
 BigInt *big_mod(const BigInt *u, const BigInt *v)
 {
-    BigInt *q = NULL;
     BigInt *r = NULL;
-    if (big_divmod(u, v, &q, &r) == 0)
+    if (big_divmod(u, v, NULL, &r) == 0)
     {
-        free_bigint(q);
         return r;
     }
     return NULL;
 }
+
 
 // ============================================================================
 // UNIT TESTS & VERIFICATION
@@ -670,3 +712,5 @@ void run_division_benchmark(void)
     printf("When doubling both m and n (N -> 2N), expected theoretical growth is 4.00x (O(N^2)).\n");
     printf("=== BENCHMARK COMPLETED ===\n\n");
 }
+
+
