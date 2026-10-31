@@ -7,7 +7,7 @@
 **Repository & Evidence Links:**
 
 - **Public GitHub Repository:** [https://github.com/hoaglee666/DSA-Final](https://github.com/hoaglee666/DSA-Final)
-- **Week 3 Target Commit:** [`1319396972`](https://github.com/hoaglee666/DSA-Final/commit/d8af94af8a359ad8f30948ac75d5cb63f8d42021)
+- **Week 3 Target Commit:** [`1319396972`](https://github.com/hoaglee666/DSA-Final/commit/105e0e598ec891d5e8b572863b7eb5bef2a9a0b5)
 - **Week 1 Report:** [WEEKLY_REPORT_1.md](WEEKLY_REPORT_1.md)
 - **Week 2 Report:** [WEEKLY_REPORT_2.md](WEEKLY_REPORT_2.md)
 - **Source Files (direct links):**
