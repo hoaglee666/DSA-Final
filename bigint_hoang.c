@@ -505,31 +505,80 @@ void run_modexp_benchmark(void)
 void run_arithmetic_oracle_tests(int num_iterations)
 {
     printf("\n=== ARITHMETIC ORACLE TESTING (vs. __int128) ===\n");
-    int passed = 0;
+    int add_passed = 0;
+    int sub_passed = 0;
+    int mul_passed = 0;
 
     for (int i = 0; i < num_iterations; i++)
     {
-        // gen 32/64 bit num fit safely, up to 10^9
-        uint64_t val1 = (rand() % 900000000ULL) + 1;
-        uint64_t val2 = (rand() % 900000000ULL) + 1;
+        int64_t val1 = (rand() % 2000000000ULL) - 1000000000ULL;
+        int64_t val2 = (rand() % 2000000000ULL) - 1000000000ULL;
 
-        char buf1[64], buf2[64], buf_res[128];
-        snprintf(buf1, sizeof(buf1), "%llu", (unsigned long long)val1);
-        snprintf(buf2, sizeof(buf2), "%llu", (unsigned long long)val2);
+        char buf1[64], buf2[64];
+        snprintf(buf1, sizeof(buf1), "%lld", (long long)val1);
+        snprintf(buf2, sizeof(buf2), "%lld", (long long)val2);
 
         BigInt *b1 = string_to_bigint(buf1);
         BigInt *b2 = string_to_bigint(buf2);
+
+        // --- 1. TEST ADDITION ---
+        BigInt *b_sum = bigint_add(b1, b2);
+        char buf_sum[128];
+        bigint_to_string(b_sum, buf_sum, sizeof(buf_sum));
+
+        int64_t expected_sum = val1 + val2;
+        char exp_sum_buff[128];
+        snprintf(exp_sum_buff, sizeof(exp_sum_buff), "%lld", (long long)expected_sum);
+
+        if (strcmp(buf_sum, exp_sum_buff) == 0)
+        {
+            add_passed++;
+        }
+        else
+        {
+            printf("ADD MISMATCH! %lld + %lld -> GOT %s, EXPECTED %s\n",
+                   (long long)val1, (long long)val2, buf_sum, exp_sum_buff);
+        }
+
+        // --- 2. TEST SUBTRACTION ---
+        BigInt *b_sub = bigint_sub(b1, b2);
+        char buf_sub[128];
+        bigint_to_string(b_sub, buf_sub, sizeof(buf_sub));
+
+        int64_t expected_sub = val1 - val2;
+        char ex_sub_buff[128];
+        snprintf(ex_sub_buff, sizeof(ex_sub_buff), "%lld", (long long)expected_sub);
+
+        if (strcmp(buf_sub, ex_sub_buff) == 0)
+        {
+            sub_passed++;
+        }
+        else
+        {
+            printf("SUB MISMATCH! %lld - %lld -> GOT %s, EXPECTED %s\n",
+                   (long long)val1, (long long)val2, buf_sub, ex_sub_buff);
+        }
+
+        // --- 3. TEST MULTIPLICATION ---
         BigInt *b_prod = bigint_mul(b1, b2);
+        char buf_prod[128];
+        bigint_to_string(b_prod, buf_prod, sizeof(buf_prod));
 
-        bigint_to_string(b_prod, buf_res, sizeof(buf_res));
+        // Avoid sign-extension issues with safe absolute value casting
+        unsigned __int128 abs_v1 = (val1 < 0) ? (unsigned __int128)(-val1) : (unsigned __int128)val1;
+        unsigned __int128 abs_v2 = (val2 < 0) ? (unsigned __int128)(-val2) : (unsigned __int128)val2;
+        unsigned __int128 expected_prod = abs_v1 * abs_v2;
+        int is_negative = (val1 < 0) ^ (val2 < 0);
+        if (expected_prod == 0)
+            is_negative = 0;
 
-        // compute ref using native 128 int
-        unsigned __int128 expected_prod = (unsigned __int128)val1 * val2;
-
-        // convert expec to string for compar
+        // Build expected string for __int128 product
         char expected_buf[128];
-        unsigned __int128 temp_val = expected_prod;
         int idx = 0;
+        if (is_negative)
+            expected_buf[idx++] = '-';
+
+        unsigned __int128 temp_val = expected_prod;
         if (temp_val == 0)
         {
             expected_buf[idx++] = '0';
@@ -544,26 +593,35 @@ void run_arithmetic_oracle_tests(int num_iterations)
                 temp_val /= 10;
             }
             for (int r = r_idx - 1; r >= 0; r--)
+            {
                 expected_buf[idx++] = rev[r];
+            }
         }
         expected_buf[idx] = '\0';
 
-        // assert equa
-        if (strcmp(buf_res, expected_buf) == 0)
+        if (strcmp(buf_prod, expected_buf) == 0)
         {
-            passed++;
+            mul_passed++;
         }
         else
         {
-            printf("MISMATCH! %s * %s -> GOT %s, EXPECTED %s\n", buf1, buf2, buf_res, expected_buf);
+            printf("MUL MISMATCH! %lld * %lld -> GOT %s, EXPECTED %s\n",
+                   (long long)val1, (long long)val2, buf_prod, expected_buf);
         }
 
+        // Clean up iteration objects
         free_bigint(b1);
         free_bigint(b2);
+        free_bigint(b_sum);
+        free_bigint(b_sub);
         free_bigint(b_prod);
     }
-    printf("ORACLE TEST RESULTS: %d / %d RANDOMIZED MULTIPLICATION TESTS PASSED SUCCESSFULLY.\n", passed, num_iterations);
-    printf("=== ORACLE TESTING COMPLETED=== \n");
+
+    printf("Oracle Results:\n");
+    printf("  - Addition:    %d / %d passed\n", add_passed, num_iterations);
+    printf("  - Subtraction: %d / %d passed\n", sub_passed, num_iterations);
+    printf("  - Multiplication: %d / %d passed\n", mul_passed, num_iterations);
+    printf("=== ORACLE TESTING COMPLETED ===\n");
 }
 
 void run_hoang_test()
@@ -575,6 +633,7 @@ void run_hoang_test()
 
     const char *e1 = "-987654321";
     const char *e2 = "-123456789";
+    const char *ex = "2375193652";
 
     BigInt *s = string_to_bigint(e1);
     BigInt *d = string_to_bigint(e2);
@@ -600,7 +659,7 @@ void run_hoang_test()
 
     printf("\n3. ModExp TESTING\n");
     const char *eb = "7";
-    const char *ee = "13";
+    const char *ee = "0";
     const char *em = "11";
 
     BigInt *b = string_to_bigint(eb);
