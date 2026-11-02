@@ -176,53 +176,89 @@ int compare_abs(const BigInt *a, const BigInt *b)
 // add
 BigInt *bigint_add(const BigInt *a, const BigInt *b)
 {
-    size_t max_len = (a->size > b->size) ? a->size : b->size;
-    BigInt *res = create_bigint(max_len + 1);
-    uint64_t carry = 0;
-
-    for (size_t i = 0; i < max_len || carry; i++)
+    if (a->sign == b->sign)
     {
-        if (i >= res->capacity)
-        {
-            res->capacity *= 2;
-            res->digits = (uint32_t *)realloc(res->digits, res->capacity * sizeof(uint32_t));
-        }
-        uint64_t sum = carry;
-        if (i < a->size)
-            sum += a->digits[i];
-        if (i < b->size)
-            sum += b->digits[i];
+        size_t max_len = (a->size > b->size) ? a->size : b->size;
+        BigInt *res = create_bigint(max_len + 1);
+        uint64_t carry = 0;
 
-        res->digits[i] = sum % BASE;
-        carry = sum / BASE;
-        res->size = i + 1;
+        for (size_t i = 0; i < max_len || carry; i++)
+        {
+            if (i >= res->capacity)
+            {
+                res->capacity *= 2;
+                res->digits = (uint32_t *)realloc(res->digits, res->capacity * sizeof(uint32_t));
+            }
+            uint64_t sum = carry;
+            if (i < a->size)
+                sum += a->digits[i];
+            if (i < b->size)
+                sum += b->digits[i];
+
+            res->digits[i] = sum % BASE;
+            carry = sum / BASE;
+            res->size = i + 1;
+        }
+        res->sign = a->sign;
+        trim_leading_zeros(res);
+        return res;
     }
-    trim_leading_zeros(res);
-    return res;
+    else
+    {
+        int cmp = compare_abs(a, b);
+        if (cmp == 0)
+        {
+            BigInt *res = create_bigint(1);
+            res->digits[0] = 0;
+            res->size = 1;
+            res->sign = 1;
+            return res;
+        }
+
+        const BigInt *larger = (cmp > 0) ? a : b;
+        const BigInt *smaller = (cmp > 0) ? b : a;
+
+        BigInt *res = create_bigint(larger->size);
+        int64_t borrow = 0;
+
+        for (size_t i = 0; i < larger->size; i++)
+        {
+            int64_t diff = (int64_t)larger->digits[i] - borrow;
+            if (i < smaller->size)
+            {
+                diff -= smaller->digits[i];
+            }
+            if (diff < 0)
+            {
+                diff += BASE;
+                borrow = 1;
+            }
+            else
+            {
+                borrow = 0;
+            }
+            res->digits[i] = (uint32_t)diff;
+            res->size = i + 1;
+        }
+        res->sign = (cmp > 0) ? a->sign : b->sign;
+        trim_leading_zeros(res);
+        return res;
+    }
 }
 
 // sub
 BigInt *bigint_sub(const BigInt *a, const BigInt *b)
 {
-    BigInt *res = create_bigint(a->size);
-    int64_t borrow = 0;
+    BigInt *neg_b = create_bigint(b->size);
+    neg_b->size = b->size;
+    neg_b->sign = -b->sign;
 
-    for (size_t i = 0; i < a->size; i++)
+    for (size_t i = 0; i < b->size; i++)
     {
-        int64_t diff = (int64_t)a->digits[i] - borrow;
-        if (i < b->size)
-            diff -= b->digits[i];
-        if (diff < 0)
-        {
-            diff += BASE;
-            borrow = 1;
-        }
-        else
-            borrow = 0;
-        res->digits[i] = (uint32_t)diff;
-        res->size = i + 1;
+        neg_b->digits[i] = b->digits[i];
     }
-    trim_leading_zeros(res);
+    BigInt *res = bigint_add(a, neg_b);
+    free_bigint(neg_b);
     return res;
 }
 
@@ -246,7 +282,7 @@ BigInt *bigint_mul(const BigInt *a, const BigInt *b)
             carry = product / BASE;
         }
     }
-    res->sign = a->sign & b->sign;
+    res->sign = (a->sign == b->sign) ? 1 : -1;
     trim_leading_zeros(res);
     return res;
 }
@@ -537,40 +573,52 @@ void run_hoang_test()
 
     char buf[128];
 
-    BigInt *a = string_to_bigint("987654321");
-    BigInt *b = string_to_bigint("123456789");
-    BigInt *sum = bigint_add(a, b);
-    BigInt *diff = bigint_sub(a, b);
+    const char *e1 = "-987654321";
+    const char *e2 = "-123456789";
+
+    BigInt *s = string_to_bigint(e1);
+    BigInt *d = string_to_bigint(e2);
+
+    BigInt *sum = bigint_add(s, d);
+    BigInt *diff = bigint_sub(s, d);
 
     bigint_to_string(sum, buf, sizeof(buf));
-    printf("987654321 + 123456789 = %s (EXPECTED 1111111110)\n", buf);
+    printf("%s + %s = %s\n", e1, e2, buf);
     bigint_to_string(diff, buf, sizeof(buf));
-    printf("987654321 - 123456789 = %s (EXPECTED 864197532)\n", buf);
+    printf("%s - %s = %s\n", e1, e2, buf);
 
     printf("\n2. MULTIPLICATION TESTING\n");
-    BigInt *m1 = string_to_bigint("1234");
-    BigInt *m2 = string_to_bigint("5678");
+
+    const char *e3 = "1234";
+    const char *e4 = "5678";
+
+    BigInt *m1 = string_to_bigint(e3);
+    BigInt *m2 = string_to_bigint(e4);
     BigInt *prod = bigint_mul(m1, m2);
     bigint_to_string(prod, buf, sizeof(buf));
-    printf("1234 * 5678 = %s (EXPECTED 7006652)\n", buf);
+    printf("%s * %s = %s\n", e3, e4, buf);
 
     printf("\n3. ModExp TESTING\n");
-    BigInt *b7 = string_to_bigint("7");
-    BigInt *e13 = string_to_bigint("13");
-    BigInt *m11 = string_to_bigint("11");
+    const char *eb = "7";
+    const char *ee = "13";
+    const char *em = "11";
+
+    BigInt *b = string_to_bigint(eb);
+    BigInt *e = string_to_bigint(ee);
+    BigInt *m = string_to_bigint(em);
 
     printf("3.1. FAST MODULAR EXPONENTIATION TESTING\n");
-    BigInt *ans_fast = big_modexp(b7, e13, m11, 1);
+    BigInt *ans_fast = big_modexp(b, e, m, 1);
     bigint_to_string(ans_fast, buf, sizeof(buf));
-    printf("FAST MODEXP 7^13 mod 11 -> RESULT: %s (EXPECTED: 2)\n", buf);
+    printf("FAST MODEXP %s^%s mod %s -> RESULT: %s\n", eb, ee, em, buf);
 
     printf("3.2. NAIVE MODULAR EXPONENTIATION TESTING\n");
-    BigInt *ans_naive = big_modexp_naive(b7, e13, m11, 1);
+    BigInt *ans_naive = big_modexp_naive(b, e, m, 1);
     bigint_to_string(ans_naive, buf, sizeof(buf));
-    printf("NAIVE MODEXP 7^13 mod 11 -> RESULT: %s (EXPECTED: 2)\n", buf);
+    printf("NAIVE MODEXP %s^%s mod %s -> RESULT: %s\n", eb, ee, em, buf);
 
-    free_bigint(a);
-    free_bigint(b);
+    free_bigint(s);
+    free_bigint(d);
     free_bigint(sum);
     free_bigint(diff);
 
@@ -578,9 +626,9 @@ void run_hoang_test()
     free_bigint(m2);
     free_bigint(prod);
 
-    free_bigint(b7);
-    free_bigint(e13);
-    free_bigint(m11);
+    free_bigint(b);
+    free_bigint(e);
+    free_bigint(m);
     free_bigint(ans_fast);
     free_bigint(ans_naive);
 
