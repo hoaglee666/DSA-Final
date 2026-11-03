@@ -59,5 +59,6 @@ void run_arithmetic_oracle_tests(int num_iterations);
 void run_phuc_tests(void);
 void run_oracle_tests(void);
 void run_division_benchmark(void);
+void run_rsa_educational_demo(void);
 
 #endif

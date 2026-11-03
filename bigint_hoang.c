@@ -624,6 +624,39 @@ void run_arithmetic_oracle_tests(int num_iterations)
     printf("=== ORACLE TESTING COMPLETED ===\n");
 }
 
+void run_rsa_educational_demo(void)
+{
+    printf("\n=== EDUCATIONAL RSA ENCRYPT/DECRYPT DEMO (NON-PRODUCTION) ===\n");
+    printf("Parameters: p = 61, q = 53, n = 3233, e = 17, d = 2753\n");
+
+    // init toy para, messages
+    BigInt *msg = string_to_bigint("65");
+    BigInt *e = string_to_bigint("17");
+    BigInt *d = string_to_bigint("2753");
+    BigInt *n = string_to_bigint("3233");
+
+    // c = msg^e mod n
+    BigInt *ciphertext = big_modexp(msg, e, n, 0);
+    char buf_c[128];
+    bigint_to_string(ciphertext, buf_c, sizeof(buf_c));
+    printf("Plaintext Message: 65\n");
+    printf("Encrypted Ciphertext: %s (EXPECTED: 2790)\n", buf_c);
+
+    // d = c^d mod n
+    BigInt *decrypted = big_modexp(ciphertext, d, n, 0);
+    char buf_m[128];
+    bigint_to_string(decrypted, buf_m, sizeof(buf_m));
+    printf("Decrypted Message: %s (EXPECTED: 65)\n", buf_m);
+
+    free_bigint(msg);
+    free_bigint(e);
+    free_bigint(d);
+    free_bigint(n);
+    free_bigint(ciphertext);
+    free_bigint(decrypted);
+    printf("=== RSA DEMO COMPLETED ===\n");
+}
+
 void run_hoang_test()
 {
     printf("=== RUNNING HOANG UNIT TESTS ===\n");
@@ -649,7 +682,7 @@ void run_hoang_test()
     printf("\n2. MULTIPLICATION TESTING\n");
 
     const char *e3 = "1234";
-    const char *e4 = "5678";
+    const char *e4 = "-5678";
 
     BigInt *m1 = string_to_bigint(e3);
     BigInt *m2 = string_to_bigint(e4);

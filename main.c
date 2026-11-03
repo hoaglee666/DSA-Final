@@ -14,6 +14,8 @@ int main(void)
     run_oracle_tests();
     run_division_benchmark();
 
+    run_rsa_educational_demo();
+
     printf("All test suites and benchmarks completed successfully.\n");
     return 0;
 }
